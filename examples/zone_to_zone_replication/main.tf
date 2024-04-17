@@ -1,7 +1,7 @@
 # source (Source) Resources
 
 resource "azurerm_resource_group" "source" {
-  name     = "source-resource-group-1"
+  name     = "source-resource-group-2"
   location = var.source_location
 }
 
@@ -46,6 +46,7 @@ resource "azurerm_linux_virtual_machine" "source_vm" {
   admin_password        = "P@ssw0rd1234!"
   network_interface_ids = [azurerm_network_interface.source_nic.id]
 
+  zone =1
   os_disk {
     caching              = "ReadWrite"
     storage_account_type = "Premium_LRS"
@@ -68,6 +69,7 @@ resource "azurerm_managed_disk" "source_managed_disk" {
   storage_account_type = "Standard_LRS"
   create_option        = "Empty"
   disk_size_gb         = 10
+  zone = 1
 }
 
 resource "azurerm_virtual_machine_data_disk_attachment" "source_data_disk" {
@@ -80,7 +82,7 @@ resource "azurerm_virtual_machine_data_disk_attachment" "source_data_disk" {
 
 
 resource "azurerm_resource_group" "target" {
-  name     = "target-resource-group-1"
+  name     = "target-resource-group-2"
   location = var.target_location
   provider = azurerm.target
 }
@@ -148,6 +150,7 @@ module "avm_bcdr_replication" {
       target_resource_group_id = azurerm_resource_group.target.id # Id of resource group where the VM should be created when a failover is done.
       source_network_id        = azurerm_virtual_network.source_vnet.id
       target_network_id        = azurerm_virtual_network.target_vnet.id
+      target_zone= 2
 
       managed_disks = [
         {

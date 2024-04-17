@@ -7,5 +7,5 @@ variable "source_location" {
 variable "target_location" {
   description = "The Azure Region in which the target resources will be deployed."
   type        = string
-  default     = "northeurope"
+  default     = "francecentral"
 }
