@@ -1,201 +1,273 @@
-variable "name" {
-  type        = string
-  description = "The name of the this resource."
-
-  validation {
-    condition     = can(regex("TODO", var.name))
-    error_message = "The name must be TODO." # TODO remove the example below once complete:
-    #condition     = can(regex("^[a-z0-9]{5,50}$", var.name))
-    #error_message = "The name must be between 5 and 50 characters long and can only contain lowercase letters and numbers."
-  }
-}
-
-# This is required for most resource modules
-variable "resource_group_name" {
-  type        = string
-  description = "The resource group where the resources will be deployed."
-}
-
-# required AVM interfaces
-# remove only if not supported by the resource
-# tflint-ignore: terraform_unused_declarations
-variable "customer_managed_key" {
-  type = object({
-    key_vault_resource_id              = optional(string)
-    key_name                           = optional(string)
-    key_version                        = optional(string, null)
-    user_assigned_identity_resource_id = optional(string, null)
-  })
-  default     = {}
-  description = "Customer managed keys that should be associated with the resource."
-}
-
-variable "diagnostic_settings" {
-  type = map(object({
-    name                                     = optional(string, null)
-    log_categories                           = optional(set(string), [])
-    log_groups                               = optional(set(string), ["allLogs"])
-    metric_categories                        = optional(set(string), ["AllMetrics"])
-    log_analytics_destination_type           = optional(string, "Dedicated")
-    workspace_resource_id                    = optional(string, null)
-    storage_account_resource_id              = optional(string, null)
-    event_hub_authorization_rule_resource_id = optional(string, null)
-    event_hub_name                           = optional(string, null)
-    marketplace_partner_resource_id          = optional(string, null)
-  }))
-  default     = {}
-  description = <<DESCRIPTION
-A map of diagnostic settings to create on the Key Vault. The map key is deliberately arbitrary to avoid issues where map keys maybe unknown at plan time.
-
-- `name` - (Optional) The name of the diagnostic setting. One will be generated if not set, however this will not be unique if you want to create multiple diagnostic setting resources.
-- `log_categories` - (Optional) A set of log categories to send to the log analytics workspace. Defaults to `[]`.
-- `log_groups` - (Optional) A set of log groups to send to the log analytics workspace. Defaults to `["allLogs"]`.
-- `metric_categories` - (Optional) A set of metric categories to send to the log analytics workspace. Defaults to `["AllMetrics"]`.
-- `log_analytics_destination_type` - (Optional) The destination type for the diagnostic setting. Possible values are `Dedicated` and `AzureDiagnostics`. Defaults to `Dedicated`.
-- `workspace_resource_id` - (Optional) The resource ID of the log analytics workspace to send logs and metrics to.
-- `storage_account_resource_id` - (Optional) The resource ID of the storage account to send logs and metrics to.
-- `event_hub_authorization_rule_resource_id` - (Optional) The resource ID of the event hub authorization rule to send logs and metrics to.
-- `event_hub_name` - (Optional) The name of the event hub. If none is specified, the default event hub will be selected.
-- `marketplace_partner_resource_id` - (Optional) The full ARM resource ID of the Marketplace resource to which you would like to send Diagnostic LogsLogs.
-DESCRIPTION
-  nullable    = false
-
-  validation {
-    condition     = alltrue([for _, v in var.diagnostic_settings : contains(["Dedicated", "AzureDiagnostics"], v.log_analytics_destination_type)])
-    error_message = "Log analytics destination type must be one of: 'Dedicated', 'AzureDiagnostics'."
-  }
-  validation {
-    condition = alltrue(
-      [
-        for _, v in var.diagnostic_settings :
-        v.workspace_resource_id != null || v.storage_account_resource_id != null || v.event_hub_authorization_rule_resource_id != null || v.marketplace_partner_resource_id != null
-      ]
-    )
-    error_message = "At least one of `workspace_resource_id`, `storage_account_resource_id`, `marketplace_partner_resource_id`, or `event_hub_authorization_rule_resource_id`, must be set."
-  }
-}
-
 variable "enable_telemetry" {
+  description = "Enable telemetry for the module."
   type        = bool
-  default     = true
-  description = <<DESCRIPTION
-This variable controls whether or not telemetry is enabled for the module.
-For more information see <https://aka.ms/avm/telemetryinfo>.
-If it is set to false, then no telemetry will be collected.
-DESCRIPTION
-}
+  default     = false
 
-variable "location" {
+}
+variable "source_location" {
   type        = string
-  nullable    = false
-  description = "Azure region where the resource should be deployed."
+  description = "The source Azure region where the VM is located."
 }
 
-variable "lock" {
-  type = object({
-    name = optional(string, null)
-    kind = optional(string, "None")
-  })
-  default     = {}
-  description = "The lock level to apply. Default is `None`. Possible values are `None`, `CanNotDelete`, and `ReadOnly`."
-  nullable    = false
-
-  validation {
-    condition     = contains(["CanNotDelete", "ReadOnly", "None"], var.lock.kind)
-    error_message = "The lock level must be one of: 'None', 'CanNotDelete', or 'ReadOnly'."
-  }
+variable "target_location" {
+  type        = string
+  description = "The Azure Region for the target resources."
 }
 
-# tflint-ignore: terraform_unused_declarations
-variable "managed_identities" {
-  type = object({
-    system_assigned            = optional(bool, false)
-    user_assigned_resource_ids = optional(set(string), [])
-  })
-  default     = {}
-  description = "Managed identities to be created for the resource."
+
+
+# Vault Configuration
+variable "use_existing_vault" {
+  type        = bool
+  description = "Set to true if using an existing Recovery Services Vault."
+  default     = false
 }
 
-variable "private_endpoints" {
+# Resource Group Configuration
+variable "vault_resource_group_name" {
+  type        = string
+  description = "The name of the resource group where the target vault exists."
+
+}
+
+
+
+
+variable "vault_name" {
+  type        = string
+  description = "Name of the Recovery Services Vault to be created, if not using an existing one."
+  default     = ""
+}
+
+variable "capacity_reservation_target_sku" {
+  type        = string
+  description = "The SKU of the capacity reservation to be created."
+  default     = ""
+
+}
+
+
+
+variable "target_vnet_name" {
+  type        = string
+  description = "The name of the target virtual network to be created if not using an existing one."
+  default     = ""
+}
+
+variable "target_vnet_address_space" {
+  type        = list(string)
+  description = "The address space of the target virtual network to be created, if required."
+  default     = []
+}
+
+
+
+
+variable "target_subnet_name" {
+  type        = string
+  description = "The name of the target subnet to be created if not using an existing one."
+  default     = ""
+}
+
+variable "target_subnet_address_prefix" {
+  type        = string
+  description = "The address prefix for the target subnet, if not using an existing one."
+  default     = ""
+}
+variable "replicated_vms" {
+  description = "A map of virtual machines to replicate, with their corresponding configuration."
   type = map(object({
-    name = optional(string, null)
-    role_assignments = optional(map(object({
-      role_definition_id_or_name             = string
-      principal_id                           = string
-      description                            = optional(string, null)
-      skip_service_principal_aad_check       = optional(bool, false)
-      condition                              = optional(string, null)
-      condition_version                      = optional(string, null)
-      delegated_managed_identity_resource_id = optional(string, null)
-    })), {})
-    lock = optional(object({
-      name = optional(string, null)
-      kind = optional(string, "None")
-    }), {})
-    tags                                    = optional(map(any), null)
-    subnet_resource_id                      = string
-    private_dns_zone_group_name             = optional(string, "default")
-    private_dns_zone_resource_ids           = optional(set(string), [])
-    application_security_group_associations = optional(map(string), {})
-    private_service_connection_name         = optional(string, null)
-    network_interface_name                  = optional(string, null)
-    location                                = optional(string, null)
-    resource_group_name                     = optional(string, null)
-    ip_configurations = optional(map(object({
-      name               = string
-      private_ip_address = string
-    })), {})
+    vm_id                                 = string
+    target_resource_group_id              = string
+    source_network_id                     = string
+    target_network_id                     = string
+    managed_disks = list(object({
+      disk_id                            = string
+      disk_type                          = string
+      replica_disk_type                  = string
+      target_disk_encryption_set_id      = optional(string)
+    }))
+    network_interfaces = list(object({
+      network_interface_id               = string
+      target_subnet_name                 = string
+      target_static_ip                   = optional(string)
+      recovery_public_ip_address_id      = optional(string)
+      failover_test_static_ip            = optional(string)
+      failover_test_subnet_name          = optional(string)
+      failover_test_public_ip_address_id = optional(string)
+    }))
+    create_capacity_reservation          = optional(bool)
+    capacity_reservation_sku             = optional(string)
+    capacity_reservation_group_name      = optional(string)
+    target_availability_set_id           = optional(string)
+    target_zone                         = optional(string)
+    target_edge_zone                    = optional(string)
+    target_proximity_placement_group_id = optional(string)
+    target_boot_diagnostic_storage_account_id = optional(string)
+    target_virtual_machine_scale_set_id = optional(string)
+    test_network_id                     = optional(string)
+    multi_vm_group_name                 = optional(string)
   }))
-  default     = {}
-  description = <<DESCRIPTION
-A map of private endpoints to create on this resource. The map key is deliberately arbitrary to avoid issues where map keys maybe unknown at plan time.
-
-- `name` - (Optional) The name of the private endpoint. One will be generated if not set.
-- `role_assignments` - (Optional) A map of role assignments to create on the private endpoint. The map key is deliberately arbitrary to avoid issues where map keys maybe unknown at plan time. See `var.role_assignments` for more information.
-- `lock` - (Optional) The lock level to apply to the private endpoint. Default is `None`. Possible values are `None`, `CanNotDelete`, and `ReadOnly`.
-- `tags` - (Optional) A mapping of tags to assign to the private endpoint.
-- `subnet_resource_id` - The resource ID of the subnet to deploy the private endpoint in.
-- `private_dns_zone_group_name` - (Optional) The name of the private DNS zone group. One will be generated if not set.
-- `private_dns_zone_resource_ids` - (Optional) A set of resource IDs of private DNS zones to associate with the private endpoint. If not set, no zone groups will be created and the private endpoint will not be associated with any private DNS zones. DNS records must be managed external to this module.
-- `application_security_group_resource_ids` - (Optional) A map of resource IDs of application security groups to associate with the private endpoint. The map key is deliberately arbitrary to avoid issues where map keys maybe unknown at plan time.
-- `private_service_connection_name` - (Optional) The name of the private service connection. One will be generated if not set.
-- `network_interface_name` - (Optional) The name of the network interface. One will be generated if not set.
-- `location` - (Optional) The Azure location where the resources will be deployed. Defaults to the location of the resource group.
-- `resource_group_name` - (Optional) The resource group where the resources will be deployed. Defaults to the resource group of this resource.
-- `ip_configurations` - (Optional) A map of IP configurations to create on the private endpoint. If not specified the platform will create one. The map key is deliberately arbitrary to avoid issues where map keys maybe unknown at plan time.
-  - `name` - The name of the IP configuration.
-  - `private_ip_address` - The private IP address of the IP configuration.
-DESCRIPTION
+}
+variable "existing_capacity_reservation_group_id" {
+  description = "The ID of an existing capacity reservation group to use. Leave empty if creating a new one."
+  type        = string
+  default     = ""
 }
 
-variable "role_assignments" {
-  type = map(object({
-    role_definition_id_or_name             = string
-    principal_id                           = string
-    description                            = optional(string, null)
-    skip_service_principal_aad_check       = optional(bool, false)
-    condition                              = optional(string, null)
-    condition_version                      = optional(string, null)
-    delegated_managed_identity_resource_id = optional(string, null)
-  }))
-  default     = {}
-  description = <<DESCRIPTION
-A map of role assignments to create on this resource. The map key is deliberately arbitrary to avoid issues where map keys maybe unknown at plan time.
-
-- `role_definition_id_or_name` - The ID or name of the role definition to assign to the principal.
-- `principal_id` - The ID of the principal to assign the role to.
-- `description` - The description of the role assignment.
-- `skip_service_principal_aad_check` - If set to true, skips the Azure Active Directory check for the service principal in the tenant. Defaults to false.
-- `condition` - The condition which will be used to scope the role assignment.
-- `condition_version` - The version of the condition syntax. Valid values are '2.0'.
-
-> Note: only set `skip_service_principal_aad_check` to true if you are assigning a role to a service principal.
-DESCRIPTION
+variable "capacity_reservation_group_name" {
+  description = "The name for a new capacity reservation group common for all replicated VMs."
+  type        = string
+  default     = ""
 }
 
-# tflint-ignore: terraform_unused_declarations
+
+
+# Recovery Policy Configuration
+variable "recovery_point_retention_in_minutes" {
+  type        = number
+  description = "The duration in minutes for which the recovery points need to be stored."
+}
+
+variable "application_consistent_snapshot_frequency_in_minutes" {
+  type        = number
+  description = "The frequency in minutes at which application-consistent snapshots are taken."
+}
+
 variable "tags" {
-  type        = map(any)
+  type        = map(string)
+  description = "A map of tags to apply to all resources."
   default     = {}
-  description = "The map of tags to be applied to the resource"
+}
+
+
+variable "replicated_vm_name" {
+  description = "Name of the replicated VM"
+  default     = "replicated-vm"
+}
+variable "target_availability_set_id" {
+  type        = string
+  description = "Id of availability set that the new VM should belong to when a failover is done."
+  default     = null
+}
+
+variable "target_zone" {
+  type        = string
+  description = "Specifies the Availability Zone where the Failover VM should exist."
+  default     = null
+}
+
+variable "target_edge_zone" {
+  type        = string
+  description = "Specifies the Edge Zone within the Azure Region where this Managed Kubernetes Cluster should exist."
+  default     = null
+}
+
+variable "target_proximity_placement_group_id" {
+  type        = string
+  description = "Id of Proximity Placement Group the new VM should belong to when a failover is done."
+  default     = null
+}
+
+variable "target_boot_diagnostic_storage_account_id" {
+  type        = string
+  description = "Id of the storage account which the new VM should used for boot diagnostic when a failover is done."
+  default     = null
+}
+
+
+
+variable "target_virtual_machine_scale_set_id" {
+  type        = string
+  description = "Id of the Virtual Machine Scale Set which the new Vm should belong to when a failover is done."
+  default     = null
+}
+
+
+
+variable "test_network_id" {
+  type        = string
+  description = "Network to use when a test failover is done."
+  default     = null
+}
+
+variable "multi_vm_group_name" {
+  type        = string
+  description = "Name of group in which all machines will replicate together and have shared crash consistent and app-consistent recovery points when failed over."
+  default     = null
+}
+
+
+
+variable "network_interface_target_static_ip" {
+  type        = string
+  description = "Static IP to assign when a failover is done."
+  default     = null
+}
+
+variable "network_interface_recovery_public_ip_address_id" {
+  type        = string
+  description = "Id of the public IP object to use when a failover is done."
+  default     = null
+}
+
+variable "network_interface_failover_test_static_ip" {
+  type        = string
+  description = "Static IP to assign when a test failover is done."
+  default     = null
+}
+
+variable "network_interface_failover_test_subnet_name" {
+  type        = string
+  description = "Name of the subnet to use when a test failover is done."
+  default     = null
+}
+
+variable "network_interface_failover_test_public_ip_address_id" {
+  type        = string
+  description = "Id of the public IP object to use when a test failover is done."
+  default     = null
+}
+
+variable "enable_capacity_reservation" {
+  description = "Defines whether capacity reservation should be created."
+  type        = bool
+  default     = false
+}
+
+
+
+variable "staging_replication_type" {
+  description = "The replication type for the staging storage account."
+  type        = string
+  default     = "LRS"
+}
+
+variable "target_resource_group_name" {
+  description = "The name of the resource group in which the target replicarted resources will be created."
+  type        = string
+  default     = ""
+}
+
+variable "bcdr_subscription" {
+  description = "The subscription ID for the bcdr resources."
+  type        = string
+  default     = ""
+}
+variable "target_subscription" {
+  description = "The subscription ID for the target resources."
+  type        = string
+  default     = ""
+}
+
+variable "environment" {
+  description = "The environment for the resources."
+  type        = string
+  default     = "prod"
+}
+
+variable "create_capacity_reservation_group" {
+  description = "Defines whether capacity reservation group should be created."
+  type        = bool
+  default     = false
 }
