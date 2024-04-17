@@ -213,6 +213,7 @@ resource "azurerm_site_recovery_replicated_vm" "replicated_vm" {
   target_availability_set_id                   = each.value.target_availability_set_id
   target_zone                                  = each.value.target_zone
   target_edge_zone                             = each.value.target_edge_zone
+  target_network_id                            = each.value.target_network_id
   target_proximity_placement_group_id          = each.value.target_proximity_placement_group_id
   target_boot_diagnostic_storage_account_id    = each.value.target_boot_diagnostic_storage_account_id
   target_virtual_machine_scale_set_id          = each.value.target_virtual_machine_scale_set_id
