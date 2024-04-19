@@ -18,8 +18,6 @@ This module provides functionality for:
 
 The module replicates virtual machines within Azure from a source to a target location, handling all intermediary replication policies, and resource configurations. Here's a chart to illustrate the replication pattern:
 
-Copy  mermaid
-
 ```mermaid
 graph TD
     sub_source["Azure Subscription (Source)"]
@@ -119,5 +117,8 @@ This module outputs various useful values, including:
 -   Capacity reservation group name and IDs if applicable.
 -   Network mapping names used for replicated VMs.
 
+## Known limitations
+
+- High  churn is not supported because the terraform resource azurerm_site_recovery_replicated_vm doesn't support it, there is an open github issue: https://github.com/hashicorp/terraform-provider-azurerm/issues/23343
 
 <!-- END_TF_DOCS -->
